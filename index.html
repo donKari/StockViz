@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockViz — La gestion de stock que l'on voit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-full: #1D9E75;
+      --green-light: #5DCAA5;
+      --yellow: #D4B84A;
+      --orange: #E07A30;
+      --red: #D94F4F;
+      --blue-empty: #5A9FCC;
+      --text: #1a1a18;
+      --text-muted: #666660;
+      --text-faint: #999993;
+      --border: rgba(0,0,0,0.08);
+      --bg: #F8F7F4;
+      --bg-card: #ffffff;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.1rem 2.5rem;
+      background: rgba(248,247,244,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-family: 'DM Serif Display', serif;
+      font-size: 20px;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+    .logo span { color: var(--green-full); }
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-links a {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 18px;
+      background: var(--text);
+      color: #fff;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .nav-cta:hover { opacity: 0.8; }
+
+    /* ── HERO ── */
+    .hero {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 6rem 2rem 3rem;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 14px;
+      background: #E1F5EE;
+      color: #0F6E56;
+      border-radius: 50px;
+      margin-bottom: 2rem;
+      border: 1px solid rgba(29,158,117,0.2);
+    }
+    .hero-badge::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green-full);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    .hero h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(36px, 6vw, 58px);
+      line-height: 1.1;
+      letter-spacing: -1px;
+      color: var(--text);
+      margin-bottom: 1.25rem;
+    }
+    .hero h1 em {
+      font-style: italic;
+      color: var(--green-full);
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto 2.5rem;
+      font-weight: 300;
+      line-height: 1.7;
+    }
+    .email-form {
+      display: flex;
+      gap: 8px;
+      max-width: 420px;
+      margin: 0 auto 0.75rem;
+    }
+    .email-form input {
+      flex: 1;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      background: var(--bg-card);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .email-form input:focus {
+      border-color: var(--green-full);
+      box-shadow: 0 0 0 3px rgba(29,158,117,0.12);
+    }
+    .email-form input::placeholder { color: var(--text-faint); }
+    .btn-green {
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--green-full);
+      color: #fff;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn-green:hover { background: #0F6E56; }
+    .btn-green:active { transform: scale(0.98); }
+    .form-note {
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+    .success-msg {
+      display: none;
+      font-size: 14px;
+      color: var(--green-full);
+      padding: 10px;
+      font-weight: 500;
+    }
+
+    /* ── DEMO ── */
+    .demo-section {
+      max-width: 720px;
+      margin: 4rem auto;
+      padding: 0 2rem;
+    }
+    .section-eyebrow {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      margin-bottom: 1rem;
+    }
+    .demo-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+    }
+    .demo-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    .demo-title { font-size: 14px; color: var(--text-muted); }
+    .demo-hint {
+      font-size: 11px;
+      color: var(--text-faint);
+      background: var(--bg);
+      padding: 4px 10px;
+      border-radius: 50px;
+      border: 1px solid var(--border);
+    }
+    .shelves {
+      display: flex;
+      gap: 10px;
+    }
+    .shelf-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .shelf-item:hover .bar-container { border-color: rgba(0,0,0,0.15); }
+    .shelf-name {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      min-height: 28px;
+      display: flex;
+      align-items: flex-end;
+    }
+    .bar-container {
+      width: 100%;
+      height: 90px;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+    .bar-fill {
+      width: 100%;
+      border-radius: 0 0 7px 7px;
+      transition: height 0.5s cubic-bezier(0.34,1.56,0.64,1), background 0.4s ease;
+    }
+    .bar-pct {
+      font-size: 11px;
+      font-weight: 500;
+      transition: color 0.4s;
+    }
+
+    /* ── LEGEND ── */
+    .legend {
+      display: flex;
+      gap: 12px;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how-section {
+      max-width: 720px;
+      margin: 4rem auto;
+      padding: 0 2rem;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 1rem;
+    }
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      position: relative;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .step-card:hover {
+      box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+      transform: translateY(-2px);
+    }
+    .step-num {
+      font-family: 'DM Serif Display', serif;
+      font-size: 36px;
+      color: rgba(0,0,0,0.06);
+      line-height: 1;
+      margin-bottom: 0.75rem;
+    }
+    .step-card h3 {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .step-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .step-tag {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 50px;
+      background: #E1F5EE;
+      color: #0F6E56;
+    }
+    .step-tag.v2 {
+      background: #F1EFE8;
+      color: #888780;
+    }
+
+    /* ── FOR WHO ── */
+    .who-section {
+      max-width: 720px;
+      margin: 4rem auto;
+      padding: 0 2rem;
+    }
+    .who-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 1rem;
+    }
+    .who-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1.25rem 1rem;
+      text-align: center;
+    }
+    .who-icon { font-size: 24px; margin-bottom: 8px; }
+    .who-card h4 { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+    .who-card p { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── PRICING ── */
+    .pricing-section {
+      max-width: 720px;
+      margin: 4rem auto;
+      padding: 0 2rem;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 1rem;
+    }
+    .pricing-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+    }
+    .pricing-card.featured {
+      border-color: var(--green-full);
+      border-width: 1.5px;
+      position: relative;
+    }
+    .featured-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 14px;
+      background: var(--green-full);
+      color: #fff;
+      border-radius: 50px;
+      white-space: nowrap;
+    }
+    .plan-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    .plan-price {
+      font-family: 'DM Serif Display', serif;
+      font-size: 38px;
+      line-height: 1;
+      margin-bottom: 0.25rem;
+    }
+    .plan-price span { font-size: 16px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: var(--text-muted); }
+    .plan-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .plan-features { list-style: none; }
+    .plan-features li {
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 5px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .plan-features li::before {
+      content: '';
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--green-full);
+      flex-shrink: 0;
+    }
+
+    /* ── CTA SECTION ── */
+    .cta-section {
+      max-width: 720px;
+      margin: 4rem auto 6rem;
+      padding: 0 2rem;
+    }
+    .cta-card {
+      background: var(--text);
+      border-radius: var(--radius);
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+    .cta-card h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 30px;
+      color: #fff;
+      margin-bottom: 0.75rem;
+    }
+    .cta-card p {
+      font-size: 15px;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 2rem;
+    }
+    .cta-form {
+      display: flex;
+      gap: 8px;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    .cta-form input {
+      flex: 1;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 50px;
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .cta-form input::placeholder { color: rgba(255,255,255,0.35); }
+    .cta-form input:focus { border-color: var(--green-full); }
+    .cta-success {
+      display: none;
+      font-size: 14px;
+      color: var(--green-light);
+      font-weight: 500;
+      padding: 10px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 2.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    footer .logo { font-size: 17px; }
+    footer p {
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hero { animation: fadeUp 0.6s ease both; }
+    .demo-section { animation: fadeUp 0.6s 0.1s ease both; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      nav { padding: 1rem 1.25rem; }
+      .nav-links { display: none; }
+      .who-grid { grid-template-columns: 1fr 1fr; }
+      .steps { grid-template-columns: 1fr; }
+      .pricing-grid { grid-template-columns: 1fr; }
+      .shelves { gap: 6px; }
+      .bar-container { height: 70px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="logo">Stock<span>Viz</span></span>
+  <div class="nav-links">
+    <a href="#how">Comment ça marche</a>
+    <a href="#pricing">Tarifs</a>
+    <a href="#waitlist" class="nav-cta">Rejoindre la liste</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">Bêta fermée · 50 places disponibles</div>
+  <h1>La gestion de stock<br>que l'on <em>voit vraiment</em></h1>
+  <p>Des rayons virtuels avec des barres colorées. Tu sais en 3 secondes où en est ton stock. Zéro Excel, zéro formation, zéro prise de tête.</p>
+  <div class="email-form" id="hero-form">
+    <input type="email" id="hero-email" placeholder="ton@email.com" />
+    <button class="btn-green" onclick="submitHero()">Rejoindre la liste</button>
+  </div>
+  <p class="success-msg" id="hero-success">✓ Parfait, tu es sur la liste ! On te préviendra en premier.</p>
+  <p class="form-note">Gratuit pour les 50 premiers · Pas de spam, jamais.</p>
+</section>
+
+<!-- DEMO -->
+<section class="demo-section" id="demo">
+  <p class="section-eyebrow">Aperçu interactif — Rayon "Bar"</p>
+  <div class="demo-card">
+    <div class="demo-header">
+      <span class="demo-title">Clique sur un produit pour simuler une utilisation</span>
+      <span class="demo-hint">Interactif</span>
+    </div>
+    <div class="shelves" id="shelves"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#5A9FCC"></div>Vide (0%)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#D94F4F"></div>Critique (&lt;20%)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#E07A30"></div>Bas (20–40%)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#D4B84A"></div>Moyen (40–60%)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#5DCAA5"></div>Bon (60–80%)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#1D9E75"></div>Plein (&gt;80%)</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-section" id="how">
+  <p class="section-eyebrow">Comment ça marche</p>
+  <div class="steps">
+    <div class="step-card">
+      <div class="step-num">01</div>
+      <h3>Configure tes espaces</h3>
+      <p>Crée tes rayons, caisses ou entrepôts. Ajoute chaque produit avec sa quantité max et son unité.</p>
+      <span class="step-tag">2 minutes</span>
+    </div>
+    <div class="step-card">
+      <div class="step-num">02</div>
+      <h3>Vue stock en temps réel</h3>
+      <p>Chaque produit affiche une barre colorée. Tu vois l'état de tout ton stock d'un seul regard.</p>
+      <span class="step-tag">Instantané</span>
+    </div>
+    <div class="step-card">
+      <div class="step-num">03</div>
+      <h3>Décompte vente / utilisation</h3>
+      <p>Un clic ou un scan code-barres — la quantité baisse, la barre se met à jour immédiatement.</p>
+      <span class="step-tag">1 clic ou scan</span>
+    </div>
+    <div class="step-card">
+      <div class="step-num">04</div>
+      <h3>Alertes réapprovisionnement</h3>
+      <p>Alerte automatique par email ou SMS quand un produit passe sous ton seuil configuré.</p>
+      <span class="step-tag v2">Bientôt — V2</span>
+    </div>
+  </div>
+</section>
+
+<!-- FOR WHO -->
+<section class="who-section">
+  <p class="section-eyebrow">Pour qui ?</p>
+  <div class="who-grid">
+    <div class="who-card">
+      <div class="who-icon">🍽️</div>
+      <h4>Restaurants</h4>
+      <p>Bar, cuisine, réserve — tout sous contrôle</p>
+    </div>
+    <div class="who-card">
+      <div class="who-icon">🛍️</div>
+      <h4>Boutiques</h4>
+      <p>Rayons, réserve, vitrine en un coup d'œil</p>
+    </div>
+    <div class="who-card">
+      <div class="who-icon">🔨</div>
+      <h4>Artisans</h4>
+      <p>Matériaux et fournitures toujours à portée</p>
+    </div>
+    <div class="who-card">
+      <div class="who-icon">🏠</div>
+      <h4>Particuliers</h4>
+      <p>Cave à vins, pharmacie, épicerie maison</p>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing-section" id="pricing">
+  <p class="section-eyebrow">Tarifs</p>
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <p class="plan-name">Gratuit</p>
+      <p class="plan-price">0€ <span>/ mois</span></p>
+      <p class="plan-desc">Pour découvrir et tester</p>
+      <ul class="plan-features">
+        <li>3 espaces (rayon, caisse…)</li>
+        <li>Produits illimités par espace</li>
+        <li>Barres colorées temps réel</li>
+        <li>Scan code-barres</li>
+      </ul>
+    </div>
+    <div class="pricing-card featured">
+      <span class="featured-badge">Le plus populaire</span>
+      <p class="plan-name">Pro</p>
+      <p class="plan-price">12€ <span>/ mois</span></p>
+      <p class="plan-desc">Pour un usage sérieux</p>
+      <ul class="plan-features">
+        <li>Espaces illimités</li>
+        <li>Produits illimités</li>
+        <li>Alertes email & SMS</li>
+        <li>Historique & tendances</li>
+        <li>Accès multi-utilisateurs</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="waitlist">
+  <div class="cta-card">
+    <h2>Rejoins les premiers utilisateurs</h2>
+    <p>50 places gratuites pour la bêta. Aucune carte bancaire requise.</p>
+    <div class="cta-form" id="cta-form">
+      <input type="email" id="cta-email" placeholder="ton@email.com" />
+      <button class="btn-green" onclick="submitCta()">Rejoindre</button>
+    </div>
+    <p class="cta-success" id="cta-success">✓ Tu es sur la liste ! À très vite.</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <span class="logo">Stock<span>Viz</span></span>
+  <p>© 2025 StockViz · Fait avec soin</p>
+</footer>
+
+<script>
+  /* ── BARRE COLOR ── */
+  function getColor(pct) {
+    if (pct === 0) return '#5A9FCC';
+    if (pct < 20)  return '#D94F4F';
+    if (pct < 40)  return '#E07A30';
+    if (pct < 60)  return '#D4B84A';
+    if (pct < 80)  return '#5DCAA5';
+    return '#1D9E75';
+  }
+
+  const products = [
+    { name: 'Coca-Cola', qty: 2, max: 24 },
+    { name: 'Bière blonde', qty: 8, max: 24 },
+    { name: 'Eau plate', qty: 7, max: 24 },
+    { name: 'Jus orange', qty: 18, max: 24 },
+    { name: 'Sirop menthe', qty: 0, max: 24 },
+  ];
+
+  function render() {
+    const container = document.getElementById('shelves');
+    container.innerHTML = '';
+    products.forEach((p, i) => {
+      const pct = Math.round((p.qty / p.max) * 100);
+      const color = getColor(pct);
+      const div = document.createElement('div');
+      div.className = 'shelf-item';
+      div.title = p.qty > 0 ? 'Cliquer pour utiliser 1 unité' : 'Stock épuisé';
+      div.innerHTML = `
+        <span class="shelf-name">${p.name}</span>
+        <div class="bar-container">
+          <div class="bar-fill" style="height:${pct}%; background:${color};"></div>
+        </div>
+        <span class="bar-pct" style="color:${color}">${pct}%</span>
+      `;
+      div.addEventListener('click', () => {
+        if (products[i].qty > 0) { products[i].qty--; render(); }
+      });
+      container.appendChild(div);
+    });
+  }
+  render();
+
+  /* ── FORMS ── */
+  function submitHero() {
+    const email = document.getElementById('hero-email').value;
+    if (email && email.includes('@')) {
+      document.getElementById('hero-form').style.display = 'none';
+      document.getElementById('hero-success').style.display = 'block';
+    } else {
+      document.getElementById('hero-email').style.borderColor = '#D94F4F';
+      document.getElementById('hero-email').focus();
+    }
+  }
+
+  function submitCta() {
+    const email = document.getElementById('cta-email').value;
+    if (email && email.includes('@')) {
+      document.getElementById('cta-form').style.display = 'none';
+      document.getElementById('cta-success').style.display = 'block';
+    } else {
+      document.getElementById('cta-email').style.borderColor = '#D94F4F';
+      document.getElementById('cta-email').focus();
+    }
+  }
+
+  document.getElementById('hero-email').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitHero();
+  });
+  document.getElementById('cta-email').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitCta();
+  });
+</script>
+</body>
+</html>
