@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockViz — App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #1D9E75;
+      --green-light: #5DCAA5;
+      --green-pale: #E1F5EE;
+      --green-dark: #0F6E56;
+      --yellow: #D4B84A;
+      --orange: #E07A30;
+      --red: #D94F4F;
+      --blue: #5A9FCC;
+      --text: #1a1a18;
+      --text-muted: #666660;
+      --text-faint: #999993;
+      --border: rgba(0,0,0,0.07);
+      --border-med: rgba(0,0,0,0.11);
+      --bg: #F8F7F4;
+      --bg-card: #ffffff;
+      --sidebar-w: 240px;
+      --topbar-h: 56px;
+      --radius: 14px;
+      --radius-sm: 9px;
+      --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .sidebar-logo {
+      padding: 1rem 1.25rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-family: 'DM Serif Display', serif;
+      font-size: 18px;
+      letter-spacing: -0.3px;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .logo span { color: var(--green); }
+
+    .sidebar-section {
+      padding: 0.75rem 0.75rem 0.5rem;
+    }
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      padding: 0 0.5rem;
+      margin-bottom: 3px;
+    }
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-muted);
+      transition: background 0.12s, color 0.12s;
+      user-select: none;
+    }
+    .sidebar-item:hover { background: var(--bg); color: var(--text); }
+    .sidebar-item.active {
+      background: var(--green-pale);
+      color: var(--green-dark);
+      font-weight: 500;
+    }
+    .sidebar-item .icon { font-size: 15px; flex-shrink: 0; width: 18px; text-align: center; }
+    .sidebar-item .badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 500;
+      padding: 1px 7px;
+      border-radius: 50px;
+      background: var(--red);
+      color: #fff;
+    }
+    .sidebar-item .badge.warn { background: var(--orange); }
+
+    .spaces-list {
+      padding: 0 0.75rem;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .spaces-list::-webkit-scrollbar { width: 3px; }
+    .spaces-list::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 99px; }
+
+    .space-entry {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-muted);
+      transition: background 0.12s, color 0.12s;
+    }
+    .space-entry:hover { background: var(--bg); color: var(--text); }
+    .space-entry.active { background: var(--green-pale); color: var(--green-dark); font-weight: 500; }
+    .space-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .space-entry .pct-pill {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 500;
+      padding: 1px 6px;
+      border-radius: 50px;
+      color: #fff;
+    }
+
+    .add-space-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-faint);
+      transition: background 0.12s, color 0.12s;
+      border: 1.5px dashed var(--border-med);
+      margin: 6px 0.75rem;
+    }
+    .add-space-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-pale); }
+
+    .sidebar-footer {
+      padding: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 9px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .user-chip:hover { background: var(--bg); }
+    .avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--green-pale);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--green-dark);
+      flex-shrink: 0;
+    }
+    .user-name { font-size: 13px; font-weight: 500; }
+    .user-plan { font-size: 11px; color: var(--text-faint); }
+
+    /* ── MAIN ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      height: var(--topbar-h);
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+      gap: 1rem;
+      flex-shrink: 0;
+    }
+    .topbar-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 17px;
+      letter-spacing: -0.2px;
+      flex: 1;
+    }
+    .topbar-actions { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      font-size: 13px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      padding: 7px 16px;
+      border-radius: 50px;
+      cursor: pointer;
+      border: 1px solid var(--border-med);
+      background: var(--bg);
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .btn:hover { background: var(--bg-card); color: var(--text); border-color: rgba(0,0,0,0.15); }
+    .btn-primary {
+      background: var(--green);
+      color: #fff;
+      border-color: transparent;
+    }
+    .btn-primary:hover { background: var(--green-dark); color: #fff; }
+    .btn-danger {
+      background: #fff0f0;
+      color: var(--red);
+      border-color: rgba(217,79,79,0.2);
+    }
+    .btn-danger:hover { background: #ffe0e0; }
+
+    /* ── CONTENT ── */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+    .content::-webkit-scrollbar { width: 5px; }
+    .content::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 99px; }
+
+    /* ── OVERVIEW STATS ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.25rem;
+      box-shadow: var(--shadow-card);
+    }
+    .stat-label { font-size: 11px; color: var(--text-faint); margin-bottom: 5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+    .stat-value { font-family: 'DM Serif Display', serif; font-size: 26px; letter-spacing: -0.5px; line-height: 1; margin-bottom: 3px; }
+    .stat-sub { font-size: 12px; color: var(--text-faint); }
+    .stat-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
+
+    /* ── SHELVES GRID ── */
+    .shelf-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 10px;
+    }
+    .shelf-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .shelf-card:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,0,0,0.07); }
+    .shelf-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.1rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .shelf-header-left { display: flex; align-items: center; gap: 9px; }
+    .shelf-icon-wrap {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      background: var(--bg);
+    }
+    .shelf-title { font-size: 14px; font-weight: 500; }
+    .shelf-count { font-size: 11px; color: var(--text-faint); }
+    .shelf-menu-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 18px; color: var(--text-faint);
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s, color 0.12s;
+    }
+    .shelf-menu-btn:hover { background: var(--bg); color: var(--text); }
+
+    /* ── PRODUCTS ── */
+    .products-list { padding: 0.6rem 0; }
+    .product-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 1.1rem;
+      transition: background 0.1s;
+    }
+    .product-row:hover { background: var(--bg); }
+    .product-name { font-size: 13px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .product-bar-wrap { flex: 1.2; display: flex; align-items: center; gap: 8px; }
+    .mini-bar {
+      flex: 1;
+      height: 5px;
+      background: var(--bg);
+      border-radius: 99px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .mini-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.4s cubic-bezier(0.34,1.4,0.64,1);
+    }
+    .mini-pct { font-size: 11px; font-weight: 500; white-space: nowrap; min-width: 30px; text-align: right; }
+    .mini-qty { font-size: 11px; color: var(--text-faint); white-space: nowrap; min-width: 54px; text-align: right; }
+    .product-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+    .product-row:hover .product-actions { opacity: 1; }
+    .icon-btn {
+      background: none; border: none; cursor: pointer;
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-faint);
+      transition: background 0.1s, color 0.1s;
+    }
+    .icon-btn:hover { background: var(--bg-card); color: var(--text); }
+    .icon-btn.minus:hover { color: var(--red); }
+    .icon-btn.plus:hover { color: var(--green); }
+
+    .shelf-footer {
+      padding: 0.6rem 1.1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .add-product-inline {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .add-product-inline input {
+      flex: 1;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-family: 'DM Sans', sans-serif;
+      border: 1px solid var(--border-med);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .add-product-inline input:focus { border-color: var(--green); background: var(--bg-card); }
+    .add-product-inline input::placeholder { color: var(--text-faint); }
+
+    /* ── ADD SPACE ── */
+    .new-shelf-card {
+      background: var(--bg-card);
+      border: 2px dashed var(--border-med);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 2.5rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      min-height: 180px;
+      color: var(--text-faint);
+    }
+    .new-shelf-card:hover {
+      border-color: var(--green);
+      background: var(--green-pale);
+      color: var(--green-dark);
+    }
+    .new-shelf-icon { font-size: 28px; }
+    .new-shelf-text { font-size: 13px; font-weight: 500; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 440px;
+      padding: 1.75rem;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      animation: modalIn 0.18s ease;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.96) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 20px;
+      letter-spacing: -0.2px;
+      margin-bottom: 1.25rem;
+    }
+    .form-group { margin-bottom: 1rem; }
+    .form-label { font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 5px; display: block; }
+    .form-input {
+      width: 100%;
+      padding: 9px 13px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      border: 1px solid var(--border-med);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(29,158,117,0.1);
+      background: var(--bg-card);
+    }
+    .form-input::placeholder { color: var(--text-faint); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .icon-picker {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .icon-option {
+      width: 38px; height: 38px;
+      border-radius: 8px;
+      border: 1px solid var(--border-med);
+      background: var(--bg);
+      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .icon-option:hover { border-color: var(--green); background: var(--green-pale); }
+    .icon-option.selected { border-color: var(--green); background: var(--green-pale); box-shadow: 0 0 0 2px var(--green); }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+    }
+    .modal-close {
+      position: absolute;
+      top: 1rem; right: 1rem;
+      width: 28px; height: 28px;
+      border: none;
+      background: var(--bg);
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s;
+    }
+    .modal-close:hover { background: var(--border-med); }
+
+    /* ── PRODUCT MODAL ── */
+    .product-modal-shelf {
+      font-size: 12px;
+      color: var(--text-faint);
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── TOAST ── */
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--text);
+      color: #fff;
+      font-size: 13px;
+      padding: 9px 16px;
+      border-radius: 50px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      animation: toastIn 0.2s ease, toastOut 0.2s ease 2.3s both;
+      pointer-events: auto;
+    }
+    .toast.success { background: var(--green-dark); }
+    .toast.warn { background: var(--orange); }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--text-faint);
+    }
+    .empty-state .big-icon { font-size: 36px; margin-bottom: 1rem; }
+    .empty-state h3 { font-size: 16px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+    .empty-state p { font-size: 13px; }
+
+    /* ── SEARCH ── */
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      max-width: 300px;
+    }
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-faint);
+      font-size: 13px;
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      padding: 7px 12px 7px 30px;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      border: 1px solid var(--border-med);
+      border-radius: 50px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .search-input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(29,158,117,0.1);
+      background: var(--bg-card);
+    }
+    .search-input::placeholder { color: var(--text-faint); }
+
+    /* ── VIEW TOGGLE ── */
+    .view-toggle {
+      display: flex;
+      border: 1px solid var(--border-med);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .view-btn {
+      padding: 6px 10px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-faint);
+      transition: background 0.12s, color 0.12s;
+    }
+    .view-btn.active { background: var(--bg); color: var(--text); }
+    .view-btn:hover { color: var(--text); }
+
+    /* scrollbar */
+    * { scrollbar-width: thin; scrollbar-color: var(--border-med) transparent; }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <span class="logo">Stock<span>Viz</span></span>
+  </div>
+
+  <div class="sidebar-section">
+    <p class="sidebar-label">Menu</p>
+    <div class="sidebar-item active" onclick="setView('dashboard')">
+      <span class="icon">📊</span> Tableau de bord
+    </div>
+    <div class="sidebar-item" onclick="setView('alerts')">
+      <span class="icon">🔔</span> Alertes
+      <span class="badge" id="alert-count">2</span>
+    </div>
+    <div class="sidebar-item" onclick="setView('history')">
+      <span class="icon">📋</span> Historique
+    </div>
+    <div class="sidebar-item" onclick="setView('settings')">
+      <span class="icon">⚙️</span> Paramètres
+    </div>
+  </div>
+
+  <div class="sidebar-section" style="flex:1; overflow:hidden; display:flex; flex-direction:column;">
+    <p class="sidebar-label">Mes espaces</p>
+    <div class="spaces-list" id="spaces-list">
+      <!-- injected -->
+    </div>
+  </div>
+
+  <div class="add-space-btn" onclick="openAddSpace()">
+    <span style="font-size:16px">＋</span> Nouvel espace
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="user-chip">
+      <div class="avatar">MC</div>
+      <div>
+        <div class="user-name">Mon compte</div>
+        <div class="user-plan">Plan gratuit · 1/3 espaces</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title" id="topbar-title">Tous les espaces</span>
+    <div class="topbar-actions">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" placeholder="Chercher un produit…" id="search-input" oninput="applySearch()" />
+      </div>
+      <div class="view-toggle">
+        <button class="view-btn active" onclick="setViewMode('grid', this)" title="Grille">⊞</button>
+        <button class="view-btn" onclick="setViewMode('list', this)" title="Liste">☰</button>
+      </div>
+      <button class="btn btn-primary" onclick="openAddProduct()">＋ Produit</button>
+    </div>
+  </div>
+
+  <div class="content" id="content">
+    <!-- injected by JS -->
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- MODAL: ADD SPACE -->
+<div class="modal-overlay" id="modal-space" onclick="closeOnOverlay(event,'modal-space')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-space')">✕</button>
+    <h2 class="modal-title">Nouvel espace</h2>
+    <div class="form-group">
+      <label class="form-label">Nom de l'espace</label>
+      <input class="form-input" id="space-name" placeholder="ex: Réserve, Bar, Cuisine…" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Icône</label>
+      <div class="icon-picker" id="icon-picker">
+        <!-- filled by JS -->
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Couleur</label>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;" id="color-picker">
+        <!-- filled by JS -->
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-space')">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmAddSpace()">Créer l'espace</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADD PRODUCT -->
+<div class="modal-overlay" id="modal-product" onclick="closeOnOverlay(event,'modal-product')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-product')">✕</button>
+    <h2 class="modal-title" id="product-modal-title">Ajouter un produit</h2>
+    <div class="product-modal-shelf" id="product-modal-shelf"></div>
+    <div class="form-group">
+      <label class="form-label">Nom du produit</label>
+      <input class="form-input" id="product-name" placeholder="ex: Coca-Cola, Farine T55…" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Quantité actuelle</label>
+        <input class="form-input" id="product-qty" type="number" min="0" placeholder="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quantité max</label>
+        <input class="form-input" id="product-max" type="number" min="1" placeholder="24" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Unité</label>
+        <input class="form-input" id="product-unit" placeholder="ex: bouteilles, kg, L…" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Seuil d'alerte (%)</label>
+        <input class="form-input" id="product-alert" type="number" min="0" max="100" value="20" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Espace cible</label>
+      <select class="form-input" id="product-space">
+        <!-- filled by JS -->
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-product')">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmAddProduct()" id="product-save-btn">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDIT PRODUCT -->
+<div class="modal-overlay" id="modal-edit-product" onclick="closeOnOverlay(event,'modal-edit-product')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-edit-product')">✕</button>
+    <h2 class="modal-title">Modifier le produit</h2>
+    <input type="hidden" id="edit-space-idx" />
+    <input type="hidden" id="edit-prod-idx" />
+    <div class="form-group">
+      <label class="form-label">Nom du produit</label>
+      <input class="form-input" id="edit-name" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Quantité actuelle</label>
+        <input class="form-input" id="edit-qty" type="number" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quantité max</label>
+        <input class="form-input" id="edit-max" type="number" min="1" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Unité</label>
+        <input class="form-input" id="edit-unit" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Seuil d'alerte (%)</label>
+        <input class="form-input" id="edit-alert" type="number" min="0" max="100" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="deleteProduct()">Supprimer</button>
+      <button class="btn" onclick="closeModal('modal-edit-product')">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmEditProduct()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════ DATA ═══════════════════════════════════ */
+const ICONS = ['📦','🍺','🍷','🥩','🧃','🧴','🧹','🔧','🍽️','🛒','🏪','🍕','☕','🍰','💊','🧊'];
+const COLORS = ['#1D9E75','#5A9FCC','#D4B84A','#E07A30','#D94F4F','#9B6DCF','#E97BBF','#607D8B'];
+
+let spaces = [
+  {
+    id: 1, name: 'Bar', icon: '🍺', color: '#5A9FCC',
+    products: [
+      { name: 'Coca-Cola', qty: 4, max: 24, unit: 'bouteilles', alert: 20 },
+      { name: 'Bière blonde', qty: 18, max: 48, unit: 'bouteilles', alert: 25 },
+      { name: 'Eau plate', qty: 7, max: 24, unit: 'bouteilles', alert: 20 },
+      { name: 'Jus orange', qty: 15, max: 24, unit: 'packs', alert: 30 },
+      { name: 'Sirop menthe', qty: 0, max: 12, unit: 'flacons', alert: 15 },
+    ]
+  },
+  {
+    id: 2, name: 'Cuisine', icon: '🍽️', color: '#E07A30',
+    products: [
+      { name: 'Farine T55', qty: 3, max: 10, unit: 'kg', alert: 30 },
+      { name: 'Huile d\'olive', qty: 8, max: 12, unit: 'L', alert: 20 },
+      { name: 'Sel fin', qty: 9, max: 10, unit: 'kg', alert: 15 },
+    ]
+  },
+  {
+    id: 3, name: 'Réserve', icon: '📦', color: '#9B6DCF',
+    products: [
+      { name: 'Rouleaux papier', qty: 2, max: 20, unit: 'rouleaux', alert: 20 },
+      { name: 'Détergent', qty: 11, max: 12, unit: 'bidons', alert: 15 },
+    ]
+  }
+];
+
+let currentSpaceId = null; // null = all
+let selectedIcon = ICONS[0];
+let selectedColor = COLORS[0];
+let editingSpaceIdx = null;
+let addingToSpaceIdx = null;
+let viewMode = 'grid';
+let nextId = 10;
+
+/* ═══════════════════════════════════ UTILS ═══════════════════════════════════ */
+function getColor(pct) {
+  if (pct === 0)  return '#5A9FCC';
+  if (pct < 20)   return '#D94F4F';
+  if (pct < 40)   return '#E07A30';
+  if (pct < 60)   return '#D4B84A';
+  if (pct < 80)   return '#5DCAA5';
+  return '#1D9E75';
+}
+
+function pct(p) { return p.max > 0 ? Math.round((p.qty / p.max) * 100) : 0; }
+
+function getAlertCount() {
+  let c = 0;
+  spaces.forEach(s => s.products.forEach(p => { if (pct(p) <= p.alert) c++; }));
+  return c;
+}
+
+function avgPct(space) {
+  if (!space.products.length) return 0;
+  return Math.round(space.products.reduce((s, p) => s + pct(p), 0) / space.products.length);
+}
+
+function toast(msg, type='') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+/* ═══════════════════════════════════ SIDEBAR ═══════════════════════════════════ */
+function renderSidebar() {
+  const list = document.getElementById('spaces-list');
+  list.innerHTML = '';
+  // All item
+  const all = document.createElement('div');
+  all.className = 'space-entry' + (currentSpaceId === null ? ' active' : '');
+  all.innerHTML = `<span class="space-dot" style="background:#aaa"></span> Tous les espaces`;
+  all.onclick = () => { currentSpaceId = null; renderAll(); };
+  list.appendChild(all);
+  spaces.forEach(s => {
+    const a = avgPct(s);
+    const col = getColor(a);
+    const el = document.createElement('div');
+    el.className = 'space-entry' + (currentSpaceId === s.id ? ' active' : '');
+    el.innerHTML = `
+      <span class="space-dot" style="background:${s.color}"></span>
+      ${s.icon} ${s.name}
+      <span class="pct-pill" style="background:${col}">${a}%</span>
+    `;
+    el.onclick = () => { currentSpaceId = s.id; renderAll(); };
+    list.appendChild(el);
+  });
+
+  // Update alert count
+  const ac = getAlertCount();
+  const alertBadge = document.getElementById('alert-count');
+  if (ac > 0) { alertBadge.textContent = ac; alertBadge.style.display = ''; }
+  else alertBadge.style.display = 'none';
+
+  // Update user plan
+  document.querySelector('.user-plan').textContent = `Plan gratuit · ${spaces.length}/3 espaces`;
+}
+
+/* ═══════════════════════════════════ STATS ═══════════════════════════════════ */
+function buildStats() {
+  const allProds = spaces.flatMap(s => s.products);
+  const totalProds = allProds.length;
+  const alerts = allProds.filter(p => pct(p) <= p.alert).length;
+  const empty = allProds.filter(p => p.qty === 0).length;
+  const avgAll = totalProds ? Math.round(allProds.reduce((s, p) => s + pct(p), 0) / totalProds) : 0;
+  const col = getColor(avgAll);
+  return `
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Espaces</div>
+        <div class="stat-value">${spaces.length}</div>
+        <div class="stat-sub">sur 3 max (gratuit)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Produits</div>
+        <div class="stat-value">${totalProds}</div>
+        <div class="stat-sub">au total</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Niveau moyen</div>
+        <div class="stat-value" style="color:${col}">${avgAll}%</div>
+        <div class="stat-sub">tous produits confondus</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Alertes</div>
+        <div class="stat-value" style="color:${alerts>0?'var(--red)':'var(--green)'}">${alerts}</div>
+        <div class="stat-sub">${empty} épuisé${empty!==1?'s':''}</div>
+      </div>
+    </div>
+  `;
+}
+
+/* ═══════════════════════════════════ SHELF CARD ═══════════════════════════════════ */
+function buildShelfCard(space, sIdx) {
+  const searchQ = document.getElementById('search-input')?.value?.toLowerCase() || '';
+  let filteredProducts = space.products;
+  if (searchQ) filteredProducts = space.products.filter(p => p.name.toLowerCase().includes(searchQ));
+
+  const rowsHTML = filteredProducts.map((p, pIdx) => {
+    const realIdx = space.products.indexOf(p);
+    const pc = pct(p);
+    const col = getColor(pc);
+    return `
+      <div class="product-row" id="row-${sIdx}-${realIdx}">
+        <span class="product-name">${p.name}</span>
+        <div class="product-bar-wrap">
+          <div class="mini-bar"><div class="mini-fill" style="width:${pc}%; background:${col}"></div></div>
+          <span class="mini-pct" style="color:${col}">${pc}%</span>
+        </div>
+        <span class="mini-qty">${p.qty}/${p.max} ${p.unit||''}</span>
+        <div class="product-actions">
+          <button class="icon-btn minus" onclick="adjustQty(${sIdx},${realIdx},-1)" title="Retirer 1">−</button>
+          <button class="icon-btn plus" onclick="adjustQty(${sIdx},${realIdx},+1)" title="Ajouter 1">＋</button>
+          <button class="icon-btn" onclick="openEditProduct(${sIdx},${realIdx})" title="Modifier">✎</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const emptyMsg = searchQ && filteredProducts.length === 0
+    ? `<div style="padding:1rem 1.1rem; font-size:12px; color:var(--text-faint)">Aucun résultat pour "${searchQ}"</div>`
+    : (!space.products.length ? `<div style="padding:1rem 1.1rem; font-size:12px; color:var(--text-faint)">Aucun produit — ajoutez-en un ci-dessous</div>` : '');
+
+  return `
+    <div class="shelf-card">
+      <div class="shelf-header">
+        <div class="shelf-header-left">
+          <div class="shelf-icon-wrap" style="background:${space.color}22">${space.icon}</div>
+          <div>
+            <div class="shelf-title">${space.name}</div>
+            <div class="shelf-count">${space.products.length} produit${space.products.length!==1?'s':''}</div>
+          </div>
+        </div>
+        <button class="shelf-menu-btn" onclick="openSpaceMenu(event, ${sIdx})">⋯</button>
+      </div>
+      <div class="products-list">${rowsHTML}${emptyMsg}</div>
+      <div class="shelf-footer">
+        <div class="add-product-inline">
+          <input placeholder="Nom du produit…" id="quick-add-${sIdx}" onkeydown="if(event.key==='Enter') quickAddProduct(${sIdx})" />
+          <button class="btn" style="padding:5px 12px; font-size:12px;" onclick="openAddProductInSpace(${sIdx})">Configurer</button>
+          <button class="btn btn-primary" style="padding:5px 12px; font-size:12px;" onclick="quickAddProduct(${sIdx})">＋</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ═══════════════════════════════════ RENDER ═══════════════════════════════════ */
+function renderAll() {
+  renderSidebar();
+  const content = document.getElementById('content');
+  const title = document.getElementById('topbar-title');
+
+  // Simple views
+  if (typeof currentView !== 'undefined' && currentView !== 'dashboard') {
+    renderView(currentView);
+    return;
+  }
+
+  let visibleSpaces = spaces;
+  if (currentSpaceId !== null) {
+    visibleSpaces = spaces.filter(s => s.id === currentSpaceId);
+    const s = spaces.find(s => s.id === currentSpaceId);
+    title.textContent = s ? `${s.icon} ${s.name}` : 'Espace';
+  } else {
+    title.textContent = 'Tous les espaces';
+  }
+
+  let html = buildStats();
+  html += `<div class="shelf-grid">`;
+  visibleSpaces.forEach((s, i) => {
+    const sIdx = spaces.indexOf(s);
+    html += buildShelfCard(s, sIdx);
+  });
+  // Add new space card (only on all view)
+  if (currentSpaceId === null && spaces.length < 3) {
+    html += `
+      <div class="new-shelf-card" onclick="openAddSpace()">
+        <span class="new-shelf-icon">＋</span>
+        <span class="new-shelf-text">Créer un nouvel espace</span>
+        <span style="font-size:12px">Rangez, caves, réserves…</span>
+      </div>
+    `;
+  }
+  html += `</div>`;
+  content.innerHTML = html;
+}
+
+/* ═══════════════════════════════════ VIEWS ═══════════════════════════════════ */
+let currentView = 'dashboard';
+function setView(view) {
+  currentView = view;
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  if (view === 'dashboard') { currentSpaceId = null; renderAll(); return; }
+  renderView(view);
+}
+
+function renderView(view) {
+  const content = document.getElementById('content');
+  const title = document.getElementById('topbar-title');
+  if (view === 'alerts') {
+    title.textContent = '🔔 Alertes';
+    const alerts = [];
+    spaces.forEach(s => s.products.forEach(p => {
+      const pc = pct(p);
+      if (pc <= p.alert) alerts.push({ space: s, prod: p, pct: pc });
+    }));
+    if (!alerts.length) {
+      content.innerHTML = `<div class="empty-state"><div class="big-icon">✅</div><h3>Tout est OK !</h3><p>Aucun produit sous son seuil d'alerte.</p></div>`;
+      return;
+    }
+    content.innerHTML = `
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-card); max-width:640px;">
+        ${alerts.map(a => {
+          const col = getColor(a.pct);
+          return `
+          <div class="product-row" style="padding:0.85rem 1.25rem; border-bottom:1px solid var(--border)">
+            <span style="font-size:18px">${a.space.icon}</span>
+            <div style="flex:1">
+              <div style="font-size:13px; font-weight:500">${a.prod.name}</div>
+              <div style="font-size:11px; color:var(--text-faint)">${a.space.name} · seuil ${a.prod.alert}%</div>
+            </div>
+            <div class="product-bar-wrap" style="max-width:200px">
+              <div class="mini-bar"><div class="mini-fill" style="width:${a.pct}%; background:${col}"></div></div>
+              <span class="mini-pct" style="color:${col}">${a.pct}%</span>
+            </div>
+            <span class="mini-qty">${a.prod.qty}/${a.prod.max}</span>
+          </div>
+        `}).join('')}
+      </div>
+    `;
+  } else if (view === 'history') {
+    title.textContent = '📋 Historique';
+    content.innerHTML = `<div class="empty-state"><div class="big-icon">📋</div><h3>Historique — bientôt disponible</h3><p>Disponible dans la V2 Pro. Rejoignez la liste pour être notifié.</p></div>`;
+  } else if (view === 'settings') {
+    title.textContent = '⚙️ Paramètres';
+    content.innerHTML = `
+      <div style="max-width:480px; display:flex; flex-direction:column; gap:10px;">
+        <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; box-shadow:var(--shadow-card)">
+          <h3 style="font-size:15px; font-weight:500; margin-bottom:0.75rem">Compte</h3>
+          <div class="form-group"><label class="form-label">Nom affiché</label><input class="form-input" value="Mon compte" /></div>
+          <div class="form-group"><label class="form-label">Email</label><input class="form-input" value="moi@exemple.fr" /></div>
+          <button class="btn btn-primary" style="margin-top:4px">Enregistrer</button>
+        </div>
+        <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; box-shadow:var(--shadow-card)">
+          <h3 style="font-size:15px; font-weight:500; margin-bottom:0.75rem">Plan actuel</h3>
+          <p style="font-size:13px; color:var(--text-muted); margin-bottom:1rem">Gratuit · 3 espaces max · Alertes non disponibles</p>
+          <button class="btn btn-primary">Passer en Pro — 12€/mois</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+/* ═══════════════════════════════════ ACTIONS ═══════════════════════════════════ */
+function adjustQty(sIdx, pIdx, delta) {
+  const p = spaces[sIdx].products[pIdx];
+  p.qty = Math.max(0, Math.min(p.max, p.qty + delta));
+  // check alert
+  if (pct(p) <= p.alert && delta < 0) toast(`⚠️ ${p.name} — stock bas !`, 'warn');
+  if (p.qty === 0 && delta < 0) toast(`❌ ${p.name} — stock épuisé !`, 'warn');
+  renderAll();
+}
+
+function quickAddProduct(sIdx) {
+  const input = document.getElementById(`quick-add-${sIdx}`);
+  const name = input.value.trim();
+  if (!name) return;
+  spaces[sIdx].products.push({ name, qty: 0, max: 10, unit: '', alert: 20 });
+  input.value = '';
+  toast(`✓ "${name}" ajouté dans ${spaces[sIdx].name}`, 'success');
+  renderAll();
+}
+
+function openSpaceMenu(e, sIdx) {
+  e.stopPropagation();
+  // Simple inline popup
+  const existing = document.getElementById('space-popup');
+  if (existing) { existing.remove(); return; }
+  const popup = document.createElement('div');
+  popup.id = 'space-popup';
+  popup.style.cssText = `
+    position:fixed; background:var(--bg-card); border:1px solid var(--border-med);
+    border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,0.12); z-index:150;
+    padding:6px; min-width:160px; font-size:13px;
+  `;
+  popup.innerHTML = `
+    <div class="sidebar-item" style="border-radius:6px" onclick="renameSpace(${sIdx})">✏️ Renommer</div>
+    <div class="sidebar-item" style="border-radius:6px" onclick="restockSpace(${sIdx})">↑ Réapprovisionner tout</div>
+    <div class="sidebar-item" style="border-radius:6px; color:var(--red)" onclick="deleteSpace(${sIdx})">🗑 Supprimer l'espace</div>
+  `;
+  const btn = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  popup.style.top = (rect.bottom + 6) + 'px';
+  popup.style.left = Math.max(8, rect.right - 160) + 'px';
+  document.body.appendChild(popup);
+  setTimeout(() => document.addEventListener('click', function h() { popup.remove(); document.removeEventListener('click', h); }), 0);
+}
+
+function renameSpace(sIdx) {
+  const name = prompt('Nouveau nom de l\'espace :', spaces[sIdx].name);
+  if (name && name.trim()) { spaces[sIdx].name = name.trim(); renderAll(); }
+}
+function restockSpace(sIdx) {
+  spaces[sIdx].products.forEach(p => p.qty = p.max);
+  toast(`✓ ${spaces[sIdx].name} réapprovisionné`, 'success');
+  renderAll();
+}
+function deleteSpace(sIdx) {
+  if (confirm(`Supprimer l'espace "${spaces[sIdx].name}" et tous ses produits ?`)) {
+    const name = spaces[sIdx].name;
+    spaces.splice(sIdx, 1);
+    if (currentSpaceId !== null) currentSpaceId = null;
+    toast(`🗑 "${name}" supprimé`, '');
+    renderAll();
+  }
+}
+
+/* ═══════════════════════════════════ MODALS ═══════════════════════════════════ */
+function openAddSpace() {
+  // Build pickers
+  const ip = document.getElementById('icon-picker');
+  ip.innerHTML = ICONS.map(ic => `<div class="icon-option${ic===selectedIcon?' selected':''}" onclick="selectIcon('${ic}', this)">${ic}</div>`).join('');
+  const cp = document.getElementById('color-picker');
+  cp.innerHTML = COLORS.map(c => `<div class="icon-option${c===selectedColor?' selected':''}" style="background:${c}; border-color:${c}" onclick="selectColor('${c}', this)"></div>`).join('');
+  document.getElementById('space-name').value = '';
+  openModal('modal-space');
+  setTimeout(() => document.getElementById('space-name').focus(), 50);
+}
+
+function selectIcon(icon, el) {
+  selectedIcon = icon;
+  document.querySelectorAll('#icon-picker .icon-option').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function selectColor(color, el) {
+  selectedColor = color;
+  document.querySelectorAll('#color-picker .icon-option').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function confirmAddSpace() {
+  const name = document.getElementById('space-name').value.trim();
+  if (!name) { document.getElementById('space-name').style.borderColor = 'var(--red)'; return; }
+  if (spaces.length >= 3) { toast('Limite 3 espaces atteinte. Passez en Pro !', 'warn'); return; }
+  spaces.push({ id: nextId++, name, icon: selectedIcon, color: selectedColor, products: [] });
+  closeModal('modal-space');
+  currentSpaceId = null;
+  currentView = 'dashboard';
+  toast(`✓ "${name}" créé !`, 'success');
+  renderAll();
+}
+
+function openAddProduct() {
+  addingToSpaceIdx = null;
+  document.getElementById('product-modal-title').textContent = 'Ajouter un produit';
+  document.getElementById('product-modal-shelf').innerHTML = '';
+  fillSpaceSelect(-1);
+  resetProductForm();
+  openModal('modal-product');
+  setTimeout(() => document.getElementById('product-name').focus(), 50);
+}
+
+function openAddProductInSpace(sIdx) {
+  addingToSpaceIdx = sIdx;
+  const s = spaces[sIdx];
+  document.getElementById('product-modal-title').textContent = `Produit dans "${s.name}"`;
+  document.getElementById('product-modal-shelf').innerHTML = `<span style="background:${s.color}22; color:${s.color}; padding:2px 10px; border-radius:50px; font-weight:500">${s.icon} ${s.name}</span>`;
+  fillSpaceSelect(sIdx);
+  resetProductForm();
+  openModal('modal-product');
+  setTimeout(() => document.getElementById('product-name').focus(), 50);
+}
+
+function fillSpaceSelect(selectedIdx) {
+  const sel = document.getElementById('product-space');
+  sel.innerHTML = spaces.map((s, i) => `<option value="${i}"${i===selectedIdx?' selected':''}>${s.icon} ${s.name}</option>`).join('');
+}
+
+function resetProductForm() {
+  ['product-name','product-qty','product-max','product-unit'].forEach(id => {
+    document.getElementById(id).value = '';
+    document.getElementById(id).style.borderColor = '';
+  });
+  document.getElementById('product-alert').value = '20';
+}
+
+function confirmAddProduct() {
+  const name = document.getElementById('product-name').value.trim();
+  const qty = parseInt(document.getElementById('product-qty').value) || 0;
+  const max = parseInt(document.getElementById('product-max').value) || 0;
+  const unit = document.getElementById('product-unit').value.trim();
+  const alert = parseInt(document.getElementById('product-alert').value) || 20;
+  const sIdx = parseInt(document.getElementById('product-space').value);
+  if (!name) { document.getElementById('product-name').style.borderColor = 'var(--red)'; return; }
+  if (max < 1) { document.getElementById('product-max').style.borderColor = 'var(--red)'; return; }
+  spaces[sIdx].products.push({ name, qty, max, unit, alert });
+  closeModal('modal-product');
+  toast(`✓ "${name}" ajouté dans ${spaces[sIdx].name}`, 'success');
+  renderAll();
+}
+
+function openEditProduct(sIdx, pIdx) {
+  const p = spaces[sIdx].products[pIdx];
+  document.getElementById('edit-space-idx').value = sIdx;
+  document.getElementById('edit-prod-idx').value = pIdx;
+  document.getElementById('edit-name').value = p.name;
+  document.getElementById('edit-qty').value = p.qty;
+  document.getElementById('edit-max').value = p.max;
+  document.getElementById('edit-unit').value = p.unit || '';
+  document.getElementById('edit-alert').value = p.alert || 20;
+  openModal('modal-edit-product');
+}
+
+function confirmEditProduct() {
+  const sIdx = parseInt(document.getElementById('edit-space-idx').value);
+  const pIdx = parseInt(document.getElementById('edit-prod-idx').value);
+  const p = spaces[sIdx].products[pIdx];
+  p.name = document.getElementById('edit-name').value.trim() || p.name;
+  p.qty = Math.max(0, parseInt(document.getElementById('edit-qty').value) || 0);
+  p.max = Math.max(1, parseInt(document.getElementById('edit-max').value) || 1);
+  p.unit = document.getElementById('edit-unit').value.trim();
+  p.alert = parseInt(document.getElementById('edit-alert').value) || 20;
+  p.qty = Math.min(p.qty, p.max);
+  closeModal('modal-edit-product');
+  toast('✓ Produit mis à jour', 'success');
+  renderAll();
+}
+
+function deleteProduct() {
+  const sIdx = parseInt(document.getElementById('edit-space-idx').value);
+  const pIdx = parseInt(document.getElementById('edit-prod-idx').value);
+  const name = spaces[sIdx].products[pIdx].name;
+  spaces[sIdx].products.splice(pIdx, 1);
+  closeModal('modal-edit-product');
+  toast(`🗑 "${name}" supprimé`, '');
+  renderAll();
+}
+
+/* ─── modal helpers ─── */
+function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+function closeOnOverlay(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') ['modal-space','modal-product','modal-edit-product'].forEach(closeModal);
+});
+
+/* ─── search / view mode ─── */
+function applySearch() { renderAll(); }
+function setViewMode(mode, btn) {
+  viewMode = mode;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+/* ─── init ─── */
+renderAll();
+</script>
+</body>
+</html>
