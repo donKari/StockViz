@@ -992,11 +992,91 @@
 
     /* scrollbar */
     * { scrollbar-width: thin; scrollbar-color: var(--border-med) transparent; }
+
+    /* Auth guard overlay */
+    #auth-loading {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px;
+      color: var(--text-muted);
+      letter-spacing: -0.3px;
+      transition: opacity 0.3s;
+    }
+    #auth-loading .pulse-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      margin-left: 10px;
+      animation: pulse 1.2s ease infinite;
+    }
+    @keyframes pulse {
+      0%,100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(0.5); opacity: 0.3; }
+    }
+
+    /* User chip dans la sidebar */
+    .user-chip { cursor: pointer; }
+    .user-chip-menu {
+      position: fixed;
+      background: var(--bg-card);
+      border: 1px solid var(--border-med);
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+      padding: 6px;
+      min-width: 180px;
+      z-index: 200;
+      animation: fadeIn 0.12s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+    .chip-menu-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+    .chip-menu-item:hover { background: var(--bg); color: var(--text); }
+    .chip-menu-item.danger { color: var(--red); }
+    .chip-menu-item.danger:hover { background: #fff0f0; }
+    .chip-menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+    /* Saving indicator */
+    #save-indicator {
+      position: fixed; bottom: 20px; right: 20px;
+      font-size: 12px; font-weight: 500;
+      padding: 7px 14px;
+      background: var(--text); color: #fff;
+      border-radius: 50px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      z-index: 500;
+      display: none;
+      align-items: center; gap: 7px;
+    }
+    #save-indicator.show { display: flex; animation: slideUp 0.2s ease; }
+    #save-indicator.error { background: var(--red); }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
   </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-api.js"></script>
 </head>
 <body>
+
+<!-- Auth guard -->
+<div id="auth-loading">
+  Stock<span style="color:var(--green)">Viz</span>
+  <span class="pulse-dot"></span>
+</div>
+
+<!-- Save indicator -->
+<div id="save-indicator">
+  <span id="save-text">Sauvegarde…</span>
+</div>
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
@@ -2166,7 +2246,227 @@ function setSettingsTab(tab) {
 }
 
 /* ─── init ─── */
-renderAll();
+/* ════════════════════════════════════════════
+   ÉTAT AUTH — Variables globales
+════════════════════════════════════════════ */
+let currentUser = null;
+let currentProfile = null;
+
+/* ════════════════════════════════════════════
+   SAVE INDICATOR
+════════════════════════════════════════════ */
+let saveTimer;
+function showSaving(isError = false) {
+  const el = document.getElementById('save-indicator');
+  const txt = document.getElementById('save-text');
+  clearTimeout(saveTimer);
+  el.className = 'show' + (isError ? ' error' : '');
+  txt.textContent = isError ? '✗ Erreur de sauvegarde' : '✓ Sauvegardé';
+  saveTimer = setTimeout(() => el.className = '', 2000);
+}
+
+/* ════════════════════════════════════════════
+   SYNC SUPABASE → variables locales
+════════════════════════════════════════════ */
+async function syncFromDB() {
+  const data = await loadSpaces(currentUser.id);
+  spaces = data.map(s => ({
+    ...s,
+    products: s.products.map(p => ({ ...p }))
+  }));
+  renderAll();
+}
+
+/* ════════════════════════════════════════════
+   WRAP DES ACTIONS
+════════════════════════════════════════════ */
+const _originalConfirmAddSpace = confirmAddSpace;
+window.confirmAddSpace = async function() {
+  const name = document.getElementById('space-name').value.trim();
+  if (!name) { document.getElementById('space-name').style.borderColor = 'var(--red)'; return; }
+  if (spaces.length >= 3 && currentProfile?.plan !== 'pro') {
+    toast('Limite 3 espaces — passez en Pro !', 'warn'); return;
+  }
+  const alertVal = parseInt(document.getElementById('space-alert-range').value) || 20;
+  const newSpaceData = {
+    name,
+    icon: selectedIcon,
+    color: selectedColor,
+    type: selectedType,
+    desc: document.getElementById('space-desc').value.trim(),
+    alertThreshold: alertVal
+  };
+  const created = await createSpace(currentUser.id, newSpaceData);
+  if (!created) { showSaving(true); return; }
+  spaces.push({ ...created, products: [] });
+  closeModal('modal-space');
+  currentSpaceId = null;
+  currentView = 'dashboard';
+  toast(`✓ "${name}" créé !`, 'success');
+  showSaving();
+  renderAll();
+};
+
+const _originalConfirmAddProduct = confirmAddProduct;
+window.confirmAddProduct = async function() {
+  const name  = document.getElementById('product-name').value.trim();
+  const qty   = parseInt(document.getElementById('product-qty').value) || 0;
+  const max   = parseInt(document.getElementById('product-max').value) || 0;
+  const unit  = document.getElementById('product-unit').value.trim();
+  const alert = parseInt(document.getElementById('product-alert').value) || 20;
+  const sIdx  = parseInt(document.getElementById('product-space').value);
+  if (!name) { document.getElementById('product-name').style.borderColor = 'var(--red)'; return; }
+  if (max < 1) { document.getElementById('product-max').style.borderColor = 'var(--red)'; return; }
+
+  const space = spaces[sIdx];
+  const created = await createProduct(currentUser.id, space.id, { name, qty, max, unit, alert });
+  if (!created) { showSaving(true); return; }
+  space.products.push({ ...created });
+
+  await logHistory(currentUser.id, {
+    spaceId: space.id,
+    productId: created.id,
+    action: 'create',
+    productName: name,
+    spaceName: space.name,
+    qtyBefore: 0,
+    qtyAfter: qty,
+    maxQty: max
+  });
+
+  closeModal('modal-product');
+  toast(`✓ "${name}" ajouté dans ${space.name}`, 'success');
+  showSaving();
+  renderAll();
+};
+
+window.confirmEditProduct = async function() {
+  const sIdx = parseInt(document.getElementById('edit-space-idx').value);
+  const pIdx = parseInt(document.getElementById('edit-prod-idx').value);
+  const p = spaces[sIdx].products[pIdx];
+  const updates = {
+    name:  document.getElementById('edit-name').value.trim() || p.name,
+    qty:   Math.max(0, parseInt(document.getElementById('edit-qty').value) || 0),
+    max:   Math.max(1, parseInt(document.getElementById('edit-max').value) || 1),
+    unit:  document.getElementById('edit-unit').value.trim(),
+    alert: parseInt(document.getElementById('edit-alert').value) || 20
+  };
+  updates.qty = Math.min(updates.qty, updates.max);
+
+  const ok = await updateProduct(p.id, updates);
+  if (!ok) { showSaving(true); return; }
+  Object.assign(p, updates);
+  closeModal('modal-edit-product');
+  toast('✓ Produit mis à jour', 'success');
+  showSaving();
+  renderAll();
+};
+
+window.deleteProduct = async function() {
+  const sIdx = parseInt(document.getElementById('edit-space-idx').value);
+  const pIdx = parseInt(document.getElementById('edit-prod-idx').value);
+  const p = spaces[sIdx].products[pIdx];
+  const ok = await deleteProduct(p.id);
+  if (!ok) { showSaving(true); return; }
+  const name = p.name;
+  spaces[sIdx].products.splice(pIdx, 1);
+  closeModal('modal-edit-product');
+  toast(`🗑 "${name}" supprimé`, '');
+  showSaving();
+  renderAll();
+};
+
+window.deleteSpace = async function(sIdx) {
+  if (!confirm(`Supprimer l'espace "${spaces[sIdx].name}" et tous ses produits ?`)) return;
+  const name = spaces[sIdx].name;
+  const ok = await deleteSpace(spaces[sIdx].id);
+  if (!ok) { showSaving(true); return; }
+  spaces.splice(sIdx, 1);
+  currentSpaceId = null;
+  toast(`🗑 "${name}" supprimé`, '');
+  showSaving();
+  renderAll();
+};
+
+/* ════════════════════════════════════════════
+   USER CHIP — Menu contextuel
+════════════════════════════════════════════ */
+function openUserMenu(e) {
+  document.querySelectorAll('.user-chip-menu').forEach(m => m.remove());
+  const menu = document.createElement('div');
+  menu.className = 'user-chip-menu';
+  const name = currentProfile?.full_name || currentUser?.email?.split('@')[0] || 'Moi';
+  menu.innerHTML = `
+    <div style="padding:8px 12px 6px; font-size:11px; color:var(--text-faint);">${currentUser?.email}</div>
+    <div class="chip-menu-divider"></div>
+    <div class="chip-menu-item" onclick="openSettingsPanel()">⚙️ Paramètres</div>
+    <div class="chip-menu-divider"></div>
+    <div class="chip-menu-item danger" onclick="signOut()">↩ Se déconnecter</div>
+  `;
+  const rect = e.currentTarget.getBoundingClientRect();
+  menu.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+  menu.style.left = rect.left + 'px';
+  document.body.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', function h() {
+    menu.remove(); document.removeEventListener('click', h);
+  }), 0);
+}
+
+function openSettingsPanel() {
+  currentView = 'settings';
+  renderAll();
+}
+
+/* ════════════════════════════════════════════
+   MISE À JOUR DU USER CHIP
+════════════════════════════════════════════ */
+function updateUserChip() {
+  const nameEl = document.querySelector('.user-name');
+  const planEl = document.querySelector('.user-plan');
+  const avatarEl = document.querySelector('.avatar');
+  if (!currentProfile && !currentUser) return;
+  const name = currentProfile?.full_name || currentUser?.email?.split('@')[0] || 'Moi';
+  const plan = currentProfile?.plan || 'free';
+  if (nameEl) nameEl.textContent = name;
+  if (planEl) planEl.textContent = plan === 'pro' ? 'Pro ✦' : 'Gratuit';
+  if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
+  const chip = document.querySelector('.user-chip');
+  if (chip) chip.onclick = openUserMenu;
+}
+
+/* ════════════════════════════════════════════
+   INIT — AUTH GUARD + CHARGEMENT
+════════════════════════════════════════════ */
+(async function init() {
+  const session = await getSession();
+  if (!session) {
+    window.location.href = 'auth.html';
+    return;
+  }
+
+  currentUser = session.user;
+  currentProfile = await getProfile(currentUser.id);
+
+  const data = await loadSpaces(currentUser.id);
+  spaces = data;
+
+  const overlay = document.getElementById('auth-loading');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.remove(), 300);
+  }
+
+  updateUserChip();
+  renderAll();
+
+  subscribeToChanges(currentUser.id, async () => {
+    await syncFromDB();
+  });
+
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') window.location.href = 'auth.html';
+  });
+})();
 </script>
 </body>
 </html>
