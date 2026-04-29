@@ -1993,31 +1993,65 @@ function renderView(view) {
 }
 
 /* ═══════════════════════════ ACTIONS ═══════════════════════════ */
-function adjustQty(sIdx, pIdx, delta) {
+async function adjustQty(sIdx, pIdx, delta) {
   const p = spaces[sIdx].products[pIdx];
   const oldQty = p.qty;
-  p.qty = Math.max(0, Math.min(p.max, p.qty + delta));
-  if (p.qty !== oldQty) {
-    logHistory(delta > 0 ? 'plus' : 'minus', p.name, spaces[sIdx].name, delta, p.qty, p.max);
-    if (pct(p) <= p.alert && delta < 0) toast(`⚠️ ${p.name} — stock bas !`, 'warn');
-    if (p.qty === 0 && delta < 0) toast(`❌ ${p.name} — stock épuisé !`, 'warn');
-    renderAll();
-  }
+  const newQty = Math.max(0, Math.min(p.max, p.qty + delta));
+  if (newQty === oldQty) return;
+  const ok = await updateProduct(p.id, { qty: newQty });
+  if (!ok) { showSaving(true); return; }
+  p.qty = newQty;
+  _logHistoryLocal(delta > 0 ? 'plus' : 'minus', p.name, spaces[sIdx].name, delta, p.qty, p.max);
+  if (pct(p) <= p.alert && delta < 0) toast(`⚠️ ${p.name} — stock bas !`, 'warn');
+  if (p.qty === 0 && delta < 0) toast(`❌ ${p.name} — stock épuisé !`, 'warn');
+  showSaving();
+  renderAll();
 }
 
-function logHistory(action, product, space, delta, qty, max) {
+function _logHistoryLocal(action, product, space, delta, qty, max) {
   history.unshift({ date: new Date(), action, product, space, delta, qty, max });
   if (history.length > 200) history.pop();
 }
 
-function quickAddProduct(sIdx) {
+/**
+ * logHistory — version unifiée.
+ * Signature 1 (locale)  : logHistory(action, product, space, delta, qty, max)
+ * Signature 2 (Supabase): logHistory(userId, entry)
+ * La détection se fait sur le type du 2e argument.
+ */
+async function logHistory(actionOrUserId, productOrEntry, space, delta, qty, max) {
+  if (typeof productOrEntry === 'object' && productOrEntry !== null) {
+    // Signature Supabase : logHistory(userId, entry)
+    const { error } = await sb.from('history').insert({
+      user_id: actionOrUserId,
+      space_id: productOrEntry.spaceId || null,
+      product_id: productOrEntry.productId || null,
+      action: productOrEntry.action,
+      product_name: productOrEntry.productName,
+      space_name: productOrEntry.spaceName,
+      qty_before: productOrEntry.qtyBefore,
+      qty_after: productOrEntry.qtyAfter,
+      max_qty: productOrEntry.maxQty
+    });
+    if (error) console.error('logHistory (Supabase):', error);
+  } else {
+    // Signature locale : logHistory(action, product, space, delta, qty, max)
+    _logHistoryLocal(actionOrUserId, productOrEntry, space, delta, qty, max);
+  }
+}
+
+async function quickAddProduct(sIdx) {
   const input = document.getElementById(`quick-add-${sIdx}`);
   const name = input.value.trim();
   if (!name) return;
-  spaces[sIdx].products.push({ name, qty: 0, max: 10, unit: '', alert: 20 });
-  logHistory('create', name, spaces[sIdx].name, 0, 0, 10);
+  const space = spaces[sIdx];
+  const created = await createProduct(currentUser.id, space.id, { name, qty: 0, max: 10, unit: '', alert: 20 });
+  if (!created) { showSaving(true); return; }
+  space.products.push({ ...created });
+  _logHistoryLocal('create', name, space.name, 0, 0, 10);
   input.value = '';
-  toast(`✓ "${name}" ajouté dans ${spaces[sIdx].name}`, 'success');
+  toast(`✓ "${name}" ajouté dans ${space.name}`, 'success');
+  showSaving();
   renderAll();
 }
 
@@ -2040,16 +2074,30 @@ function openSpaceMenu(e, sIdx) {
   setTimeout(() => document.addEventListener('click', function h() { popup.remove(); document.removeEventListener('click', h); }), 0);
 }
 
-function renameSpace(sIdx) {
+async function renameSpace(sIdx) {
   const name = prompt('Nouveau nom de l\'espace :', spaces[sIdx].name);
-  if (name && name.trim()) { spaces[sIdx].name = name.trim(); renderAll(); }
+  if (!name || !name.trim()) return;
+  const ok = await updateSpace(spaces[sIdx].id, { name: name.trim() });
+  if (!ok) { showSaving(true); return; }
+  spaces[sIdx].name = name.trim();
+  showSaving();
+  renderAll();
 }
-function restockSpace(sIdx) {
-  spaces[sIdx].products.forEach(p => {
-    logHistory('restock', p.name, spaces[sIdx].name, p.max - p.qty, p.max, p.max);
-    p.qty = p.max;
-  });
-  toast(`✓ ${spaces[sIdx].name} réapprovisionné`, 'success');
+async function restockSpace(sIdx) {
+  const space = spaces[sIdx];
+  const updates = space.products.map(p => ({
+    product: p,
+    delta: p.max - p.qty,
+    newQty: p.max
+  })).filter(u => u.delta > 0);
+  for (const u of updates) {
+    const ok = await updateProduct(u.product.id, { qty: u.newQty });
+    if (!ok) { showSaving(true); return; }
+    _logHistoryLocal('restock', u.product.name, space.name, u.delta, u.newQty, u.product.max);
+    u.product.qty = u.newQty;
+  }
+  toast(`✓ ${space.name} réapprovisionné`, 'success');
+  showSaving();
   renderAll();
 }
 function deleteSpace(sIdx) {
@@ -2120,12 +2168,14 @@ function updateAlertPreview() {
   if (valEl) valEl.textContent = val + '%';
 }
 
+/* ⚠️ DEAD CODE — écrasée par window.confirmAddSpace défini plus bas.
+   nextId++ est obsolète : l'id UUID vient de Supabase. */
 function confirmAddSpace() {
   const name = document.getElementById('space-name').value.trim();
   if (!name) { document.getElementById('space-name').style.borderColor = 'var(--red)'; return; }
   if (spaces.length >= 3) { toast('Limite 3 espaces atteinte. Passez en Pro !', 'warn'); return; }
   const alertVal = parseInt(document.getElementById('space-alert-range').value) || 20;
-  spaces.push({ id: nextId++, name, icon: selectedIcon, color: selectedColor, type: selectedType,
+  spaces.push({ id: null /* nextId obsolète — UUID Supabase */, name, icon: selectedIcon, color: selectedColor, type: selectedType,
     desc: document.getElementById('space-desc').value.trim(), alertThreshold: alertVal, products: [] });
   closeModal('modal-space');
   currentSpaceId = null;
@@ -2252,6 +2302,12 @@ function setSettingsTab(tab) {
 let currentUser = null;
 let currentProfile = null;
 
+/* ── Références aux fonctions Supabase AVANT les surcharges window.* ──
+   Évite la récursion infinie : window.deleteSpace appelle sbDeleteSpace,
+   pas lui-même. Idem pour deleteProduct.                               */
+const sbDeleteSpace   = deleteSpace;
+const sbDeleteProduct = deleteProduct;
+
 /* ════════════════════════════════════════════
    SAVE INDICATOR
 ════════════════════════════════════════════ */
@@ -2366,7 +2422,7 @@ window.deleteProduct = async function() {
   const sIdx = parseInt(document.getElementById('edit-space-idx').value);
   const pIdx = parseInt(document.getElementById('edit-prod-idx').value);
   const p = spaces[sIdx].products[pIdx];
-  const ok = await deleteProduct(p.id);
+  const ok = await sbDeleteProduct(p.id);
   if (!ok) { showSaving(true); return; }
   const name = p.name;
   spaces[sIdx].products.splice(pIdx, 1);
@@ -2379,7 +2435,7 @@ window.deleteProduct = async function() {
 window.deleteSpace = async function(sIdx) {
   if (!confirm(`Supprimer l'espace "${spaces[sIdx].name}" et tous ses produits ?`)) return;
   const name = spaces[sIdx].name;
-  const ok = await deleteSpace(spaces[sIdx].id);
+  const ok = await sbDeleteSpace(spaces[sIdx].id);
   if (!ok) { showSaving(true); return; }
   spaces.splice(sIdx, 1);
   currentSpaceId = null;
