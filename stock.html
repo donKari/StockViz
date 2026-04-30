@@ -2,7 +2,13 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1D9E75" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="StockViz" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <title>StockViz — App</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -2523,6 +2529,40 @@ function updateUserChip() {
     if (event === 'SIGNED_OUT') window.location.href = 'auth.html';
   });
 })();
+</script>
+
+<script src="pwa-init.js">
+/* ── PWA : Scanner code-barres ── */
+function openScannerForSpace(sIdx) {
+  PWA.openBarcodeScanner(code => {
+    const space = spaces[sIdx];
+    const searchIn = [
+      ...space.products.map((p, pIdx) => ({ p, sIdx, pIdx })),
+      ...spaces.flatMap((s, si) => s.products.map((p, pi) => ({ p, sIdx: si, pIdx: pi })))
+    ];
+    const found = searchIn.find(({ p }) =>
+      p.barcode === code || p.name.toLowerCase() === code.toLowerCase()
+    );
+    if (found) {
+      adjustQty(found.sIdx, found.pIdx, -1);
+      toast(`📷 ${found.p.name} — −1`, 'success');
+    } else {
+      toast(`Code non trouvé : ${code}`, 'warn');
+      if (confirm(`Code-barres "${code}" non reconnu.\nAjouter un produit avec ce code ?`)) {
+        openAddProductInSpace(sIdx);
+        setTimeout(() => { const n = document.getElementById('product-name'); if (n) n.value = code; }, 100);
+      }
+    }
+  });
+}
+async function enablePushNotifications() {
+  const sub = await PWA.subscribeToPush();
+  if (sub) toast('🔔 Notifications activées !', 'success');
+  else toast('Notifications non disponibles', 'warn');
+}
+function maybeNotifyLowStock() {
+  if (typeof spaces !== 'undefined') PWA.checkStockAlertsAndNotify(spaces);
+}
 </script>
 </body>
 </html>
