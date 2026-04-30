@@ -421,7 +421,7 @@ function hideReset() {
 async function loginGoogle() {
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin + '/stock.html' }
+    options: { redirectTo: window.location.origin + 'https://donkari.github.io/stock.html' }
   });
   if (error) showAlert('login-alert', error.message);
 }
