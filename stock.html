@@ -2106,7 +2106,7 @@ async function restockSpace(sIdx) {
   showSaving();
   renderAll();
 }
-function deleteSpace(sIdx) {
+function _deleteSpaceLocal(sIdx) { /* DEAD CODE — window.deleteSpace actif */
   if (confirm(`Supprimer l'espace "${spaces[sIdx].name}" et tous ses produits ?`)) {
     const name = spaces[sIdx].name;
     spaces.splice(sIdx, 1);
@@ -2176,7 +2176,7 @@ function updateAlertPreview() {
 
 /* ⚠️ DEAD CODE — écrasée par window.confirmAddSpace défini plus bas.
    nextId++ est obsolète : l'id UUID vient de Supabase. */
-function confirmAddSpace() {
+function _confirmAddSpaceLocal() { /* DEAD CODE */
   const name = document.getElementById('space-name').value.trim();
   if (!name) { document.getElementById('space-name').style.borderColor = 'var(--red)'; return; }
   if (spaces.length >= 3) { toast('Limite 3 espaces atteinte. Passez en Pro !', 'warn'); return; }
@@ -2224,7 +2224,7 @@ function resetProductForm() {
   document.getElementById('product-alert').value = '20';
 }
 
-function confirmAddProduct() {
+function _confirmAddProductLocal() { /* DEAD CODE */
   const name = document.getElementById('product-name').value.trim();
   const qty = parseInt(document.getElementById('product-qty').value) || 0;
   const max = parseInt(document.getElementById('product-max').value) || 0;
@@ -2267,7 +2267,7 @@ function confirmEditProduct() {
   renderAll();
 }
 
-function deleteProduct() {
+function _deleteProductLocal() { /* DEAD CODE — window.deleteProduct actif */
   const sIdx = parseInt(document.getElementById('edit-space-idx').value);
   const pIdx = parseInt(document.getElementById('edit-prod-idx').value);
   const name = spaces[sIdx].products[pIdx].name;
@@ -2311,8 +2311,18 @@ let currentProfile = null;
 /* ── Références aux fonctions Supabase AVANT les surcharges window.* ──
    Évite la récursion infinie : window.deleteSpace appelle sbDeleteSpace,
    pas lui-même. Idem pour deleteProduct.                               */
-const sbDeleteSpace   = deleteSpace;
-const sbDeleteProduct = deleteProduct;
+// Appels directs aux fonctions Supabase (définie dans supabase-api.js)
+// On utilise des wrappers inline pour éviter toute confusion avec les fonctions locales
+async function sbDeleteSpace(spaceId) {
+  const { error } = await sb.from('spaces').delete().eq('id', spaceId);
+  if (error) console.error('deleteSpace:', error);
+  return !error;
+}
+async function sbDeleteProduct(productId) {
+  const { error } = await sb.from('products').delete().eq('id', productId);
+  if (error) console.error('deleteProduct:', error);
+  return !error;
+}
 
 /* ════════════════════════════════════════════
    SAVE INDICATOR
